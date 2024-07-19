@@ -125,7 +125,6 @@ SPACY_MODELS = {
     "ita_Latn": "it_core_news_sm",
     "por_Latn": "pt_core_news_sm",
     "nld_Latn": "nl_core_news_sm",
-    # Add more languages and their corresponding spaCy models as needed
 }
 
 
