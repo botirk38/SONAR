@@ -103,11 +103,9 @@ class HFEmbeddingToTextPipeline(Pipeline):
 
                 # Decode the embedding
                 decoded = self.t2t_model.predict(
-                    embed, target_lang=self.config.target_lang, batch_size=1)
+                    embed, target_lang=self.config.target_lang, batch_size=self.config.batch_size)
 
-                # Join the decoded sentences into a single string
-                decoded_text = " ".join([sent for sent in decoded[0]])
-                decoded_texts.append(decoded_text)
+                decoded_texts.append(decoded)
 
             logger.info("Texts decoded successfully.")
             return decoded_texts

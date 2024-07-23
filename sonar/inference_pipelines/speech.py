@@ -95,7 +95,8 @@ class AudioToFbankDataPipelineBuilder(SpeechInferencePipeline):
     def prebuild_pipeline(self, context: SpeechInferenceParams) -> DataPipelineBuilder:
         # string splitter that splits on '\t' take audio_path_index only and put result
         # in dict at key "audio"
-        split_tsv = StrSplitter(names=["audio"], indices=[context.audio_path_index])
+        split_tsv = StrSplitter(names=["audio"], indices=[
+                                context.audio_path_index])
 
         # Start building the pipeline
         pipeline_builder = (
@@ -106,7 +107,8 @@ class AudioToFbankDataPipelineBuilder(SpeechInferencePipeline):
         )
 
         # Memory map audio files and cache up to 10 files.
-        map_file = FileMapper(root_dir=context.audio_root_dir, cached_fd_count=10)
+        map_file = FileMapper(
+            root_dir=context.audio_root_dir, cached_fd_count=10)
 
         pipeline_builder.map(
             map_file, selector="audio", num_parallel_calls=context.n_parallel
@@ -327,7 +329,8 @@ class SpeechToTextModelPipeline(SpeechModelPipelineInterface):
         self.device = device
         super().__init__(fbank_dtype)
         if isinstance(encoder, str):
-            encoder = load_sonar_speech_model(encoder, device=device, progress=False)
+            encoder = load_sonar_speech_model(
+                encoder, device=device, progress=False)
         if isinstance(decoder, str):
             decoder = load_sonar_text_decoder_model(
                 decoder, device=device, progress=False
@@ -336,7 +339,8 @@ class SpeechToTextModelPipeline(SpeechModelPipelineInterface):
             tokenizer = load_sonar_tokenizer(tokenizer, progress=False)
 
         self.tokenizer = tokenizer
-        self.model = SonarEncoderDecoderModel(encoder, decoder).to(device).eval()
+        self.model = SonarEncoderDecoderModel(
+            encoder, decoder).to(device).eval()
 
         # Only quantize the model in CUDA to bypass the error "LayerNormKernelImpl" not implemented for 'Half'
         # in some CUDAs and torch versions
@@ -388,7 +392,8 @@ class SpeechToTextModelPipeline(SpeechModelPipelineInterface):
             .and_return()
         )
         if progress_bar:
-            pipeline = add_progress_bar(pipeline, inputs=input, batch_size=batch_size)
+            pipeline = add_progress_bar(
+                pipeline, inputs=input, batch_size=batch_size)
 
         results: List[List[StringLike]] = list(iter(pipeline))
         return [str(x) for y in results for x in y]
@@ -414,7 +419,8 @@ class SpeechToEmbeddingModelPipeline(SpeechModelPipelineInterface):
         super().__init__(fbank_dtype)
 
         if isinstance(encoder, str):
-            encoder = load_sonar_speech_model(encoder, device=device, progress=False)
+            encoder = load_sonar_speech_model(
+                encoder, device=device, progress=False)
         self.model = encoder.to(device).eval()
 
         # Only quantize the model in CUDA to bypass the error "LayerNormKernelImpl" not implemented for 'Half'
@@ -459,10 +465,12 @@ class SpeechToEmbeddingModelPipeline(SpeechModelPipelineInterface):
         progress_bar: bool = False,
     ) -> torch.Tensor:
         pipeline: Iterable = self.build_predict_pipeline(
-            read_sequence(input), batch_size, n_parallel, pad_idx, n_prefetched_batches
+            read_sequence(
+                input), batch_size, n_parallel, pad_idx, n_prefetched_batches
         ).and_return()
         if progress_bar:
-            pipeline = add_progress_bar(pipeline, inputs=input, batch_size=batch_size)
+            pipeline = add_progress_bar(
+                pipeline, inputs=input, batch_size=batch_size)
         results = list(iter(pipeline))
         sentence_embeddings = torch.cat(results, dim=0)
         return sentence_embeddings
