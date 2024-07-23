@@ -5,6 +5,8 @@ from dataclasses import dataclass, replace
 from datasets import Dataset
 import os
 import multiprocessing
+from contextlib import contextmanager
+import torch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +59,18 @@ class Pipeline(ABC):
     def __init__(self, config: PipelineConfig):
         self.config = config
         self.results = []
+
+    @contextmanager
+    def resource_manager(self):
+        try:
+            if torch.cuda.is_available() and self.config.device == 'cuda':
+                torch.cuda.empty_cache()
+
+            yield
+
+        finally:
+            if torch.cuda.is_available() and self.config.device == 'cuda':
+                torch.cuda.empty_cache()
 
     @abstractmethod
     def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
