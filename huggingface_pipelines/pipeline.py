@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, replace
 from datasets import Dataset
 import os
-
+import multiprocessing
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -94,12 +94,17 @@ class Pipeline(ABC):
             cache_file_path = os.path.join(
                 f"{self.config.output_dir}_{self.config.dataset_uuid}", cache_file_name)
 
+            num_proc = multiprocessing.cpu_count() if self.config.device == 'cpu' else 1
+
             updated_dataset = dataset.map(
                 lambda batch: self.process_batch(batch),
                 batched=True,
                 batch_size=self.config.batch_size,
                 load_from_cache_file=self.config.cache_to_arrow,
-                cache_file_name=cache_file_path if self.config.cache_to_arrow else None
+                cache_file_name=cache_file_path if self.config.cache_to_arrow else None,
+                desc="Processing dataset",
+                num_proc=num_proc
+
 
             )
 
