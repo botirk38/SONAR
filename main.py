@@ -1,6 +1,7 @@
 from huggingface_pipelines.metric_analyzer import MetricAnalyzerPipeline, MetricOverwrites, MetricPipelineConfig
 import logging
 import os
+from huggingface_pipelines.preprocessing import TextPreprocessingPipelineConfig, TextPreprocessingPipeline
 
 from huggingface_pipelines.dataset import DatasetConfig
 from huggingface_pipelines.text import (
@@ -19,27 +20,34 @@ def main():
     # Configure and load the initial dataset
     dataset_config = DatasetConfig(
         dataset_name="ag_news",
-        dataset_split="test"
+        dataset_split="test",
+        output_dir="results",
+
     )
     dataset = dataset_config.load_dataset()
+
+    preprocessing_config = TextPreprocessingPipelineConfig(
+        columns=["text"],
+        dataset_config=dataset_config,
+        handle_missing='skip',
+        source_lang="eng_Latn",
+        batch_size=5,
+        take=1,
+    )
+
+    preprocessing_pipeline = TextPreprocessingPipeline(preprocessing_config)
+    dataset = preprocessing_pipeline(dataset)
 
     # Build configuration for text to embedding pipeline
     text_to_embedding_config = TextToEmbeddingPipelineConfig(
         columns=["text"],
-        batch_size=1,
+        batch_size=5,
         device="cpu",
         take=1,
-        output_dir="results",
-        output_file_name="ag_news_results",
         encoder_model="text_sonar_basic_encoder",
         source_lang="eng_Latn",
-        dataset_uuid=dataset_config.uuid
+        dataset_config=dataset_config
     )
-    text_to_embedding_overwrites = TextToEmbeddingOverwrites(
-        cache_to_arrow=True
-    )
-    text_to_embedding_config = text_to_embedding_config.with_overwrites(
-        text_to_embedding_overwrites)
 
     # Initialize and run the text to embedding pipeline
     text_to_embedding_pipeline = HFTextToEmbeddingPipeline(
@@ -49,17 +57,14 @@ def main():
     # Build configuration for embedding to text pipeline
     embedding_to_text_config = EmbeddingToTextPipelineConfig(
         columns=["text"],
-        batch_size=1,
+        batch_size=5,
         device="cpu",
         take=1,
-        output_dir="results",
-        output_file_name="ag_news_results",
         decoder_model="text_sonar_basic_decoder",
-        target_lang="eng_Latn"
+        target_lang="eng_Latn",
+        dataset_config=dataset_config
     )
     embedding_to_text_overwrites = EmbeddingToTextOverwrites(
-        cache_to_arrow=True,
-        dataset_uuid=dataset_config.uuid
     )
     embedding_to_text_config = embedding_to_text_config.with_overwrites(
         embedding_to_text_overwrites)
@@ -72,17 +77,14 @@ def main():
     # Initialize the metric pipeline config
     metric_config = MetricPipelineConfig(
         columns=["text"],
-        batch_size=1,
+        batch_size=5,
         device="cpu",
         take=1,
-        output_dir="results",
-        output_file_name="ag_news_results",
         metric_name="bleu",
         low_score_threshold=0.5
     )
     metric_overwrites = MetricOverwrites(
-        cache_to_arrow=True,
-        dataset_uuid=dataset_config.uuid
+        dataset_config=dataset_config
 
     )
     metric_config = metric_config.with_overwrites(metric_overwrites)
@@ -93,9 +95,12 @@ def main():
     dataset = metrics_pipeline(dataset)
 
     # Save the dataset to disk
-    output_path = os.path.join(
-        f"{metric_config.output_dir}_{metric_config.dataset_uuid}", f'{metric_config.output_file_name}.parquet')
-    dataset.save_to_disk(output_path)
+
+    cache_file_name = f"cache_{metrics_pipeline.__class__.__name__}.parquet"
+    cache_file_path = os.path.join(
+        f"{dataset_config.output_dir}_{dataset_config.dataset_name}_{dataset_config.uuid}", cache_file_name)
+
+    dataset.save_to_disk(cache_file_path)
 
 
 if __name__ == "__main__":

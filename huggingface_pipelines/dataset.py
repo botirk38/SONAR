@@ -32,6 +32,7 @@ class DatasetConfig():
     cache_dir: str = None
     trust_remote_code: bool = False
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
+    output_dir: str = "results"
 
     def load_dataset(self):
         """
@@ -49,11 +50,10 @@ class DatasetConfig():
             "cache_dir": self.cache_dir,
             "trust_remote_code": self.trust_remote_code,
         }
-        dataset_kwargs = {k: v for k, v in dataset_kwargs.items() if v is not None}
-        
-        dataset = load_dataset(**dataset_kwargs)
+        dataset_kwargs = {k: v for k,
+                          v in dataset_kwargs.items() if v is not None}
 
-        
+        dataset = load_dataset(**dataset_kwargs)
 
         # Shard the dataset
         if self.world_size > 1:

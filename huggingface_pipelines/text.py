@@ -1,11 +1,11 @@
-import spacy
 from sonar.inference_pipelines.text import EmbeddingToTextModelPipeline
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 import torch
 from dataclasses import dataclass, replace
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -115,17 +115,6 @@ class HFEmbeddingToTextPipeline(Pipeline):
             raise
 
 
-SPACY_MODELS = {
-    "eng_Latn": "en_core_web_sm",
-    "fra_Latn": "fr_core_news_sm",
-    "deu_Latn": "de_core_news_sm",
-    "spa_Latn": "es_core_news_sm",
-    "ita_Latn": "it_core_news_sm",
-    "por_Latn": "pt_core_news_sm",
-    "nld_Latn": "nl_core_news_sm",
-}
-
-
 @dataclass
 class HFTextToEmbeddingPipeline(Pipeline):
     config: TextToEmbeddingPipelineConfig
@@ -138,68 +127,33 @@ class HFTextToEmbeddingPipeline(Pipeline):
             device=self.config.device
         )
 
-        logger.info(
-            f"Initializing spaCy model for language: {self.config.source_lang}")
-        self.nlp = self.load_spacy_model(self.config.source_lang)
-
-        logger.info("Models initialized.")
-
-    def load_spacy_model(self, lang_code: str):
-        """
-        Loads the appropriate spaCy model based on the language code.
-        """
-        if lang_code not in SPACY_MODELS:
-            raise ValueError(
-                f"Unsupported language code: {lang_code}. Please add it to the SPACY_MODELS dictionary.")
-
-        model_name = SPACY_MODELS[lang_code]
-        try:
-            return spacy.load(model_name)
-        except OSError:
-            logger.warning(
-                f"SpaCy model {model_name} not found. Attempting to download...")
-            spacy.cli.download(model_name)
-            return spacy.load(model_name)
-
-    def segment_sentences(self, text: str) -> List[str]:
-        """
-        Segments a text into sentences using the loaded spaCy model.
-        """
-        doc = self.nlp(text)
-        return [sent.text.strip() for sent in doc.sents]
-
     def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         for column in self.config.columns:
-            texts = batch[column]
-
-            # Segment sentences
-            sentences = [self.segment_sentences(text) for text in texts]
-            batch[f'{column}_sentences'] = sentences
-
-            # Log a subset of sentences (first 5)
-            logger.info(f"Sample of {column}_sentences: {sentences[:5]}")
-
-            # Encode sentences
-
-            sentence_embeddings = [self.encode_texts(
-                text_sentences) for text_sentences in sentences]
-            batch[f'{column}_embeddings'] = sentence_embeddings
-
-            # Log shape of the first 5 embeddings
-            logger.info(
-                f"Sample of {column}_embeddings shapes: {[emb.shape for emb in sentence_embeddings[:5]]}")
-
+            if column in batch:
+                sentence_embeddings = []
+                for item in batch[column]:
+                    if isinstance(item, list):
+                        # If it's a list of sentences, encode each sentence
+                        embeddings = self.encode_texts(item)
+                    else:
+                        # If it's a single string, treat it as one sentence
+                        embeddings = self.encode_texts([item])
+                    sentence_embeddings.append(embeddings)
+                batch[f"{column}_embeddings"] = sentence_embeddings
+            else:
+                logger.warning(f"Column {column} not found in batch.")
         return batch
 
-    def encode_texts(self, texts: List[str]) -> torch.Tensor:
+    def encode_texts(self, texts: Union[str, List[str]]) -> List[np.ndarray]:
         try:
-            logger.info(f"Encoding {len(texts)} texts or sentences...")
+            if isinstance(texts, str):
+                texts = [texts]
+            elif not isinstance(texts, list):
+                raise ValueError(
+                    f"Expected string or list of strings, got {type(texts)}")
+
             embeddings = self.t2vec_model.predict(
-                texts,
-                source_lang=self.config.source_lang,
-                batch_size=self.config.batch_size
-            )
-            logger.info("Texts or sentences encoded successfully.")
+                texts, source_lang=self.config.source_lang, batch_size=self.config.batch_size)
             return embeddings
         except Exception as e:
             logger.error(f"Error encoding texts or sentences: {e}")
