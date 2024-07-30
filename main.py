@@ -41,7 +41,7 @@ def main():
 
     # Build configuration for text to embedding pipeline
     text_to_embedding_config = TextToEmbeddingPipelineConfig(
-        columns=["text"],
+        columns=["text_preprocessed"],
         batch_size=5,
         device="cpu",
         take=1,
@@ -58,7 +58,7 @@ def main():
 
     # Build configuration for embedding to text pipeline
     embedding_to_text_config = EmbeddingToTextPipelineConfig(
-        columns=["text_embeddings"],
+        columns=["text_preprocessed_embeddings"],
         batch_size=5,
         device="cpu",
         take=1,
@@ -77,7 +77,7 @@ def main():
     # Initialize the metric pipeline config
     metric_config = MetricPipelineConfig(
         columns=["text"],
-        reconstructed_column=["text_reconstructed"],
+        reconstructed_column=["text_preprocessed_embeddings_reconstructed"],
         batch_size=5,
         device="cpu",
         take=1,

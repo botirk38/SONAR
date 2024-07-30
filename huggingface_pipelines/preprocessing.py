@@ -53,6 +53,9 @@ class PreprocessingPipeline(Pipeline, ABC):
             if column in batch:
                 batch[f"{column}_preprocessed"] = [
                     self.preprocess_text(text) for text in batch[column]]
+
+                logger.info(
+                    f"Preprocessed {column} column:  {batch[column][:5]}")
             else:
                 logger.warning(f"Column {column} not found in batch.")
         return batch
