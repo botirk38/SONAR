@@ -11,11 +11,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class TextToEmbeddingOverwrites(PipelineOverwrites, total=False):
-    encoder_model: str
-    source_lang: str
-
-
 class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
     decoder_model: str
     target_lang: str
@@ -30,10 +25,8 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
         encoder_model (str): The name or path of the model to be used for encoding texts into embeddings.
         source_lang (str): The source language code for the texts to be encoded.
     """
-    encoder_model: str = "text_sonar_basic_encoder"
-    source_lang: str = "eng_Latn"
 
-    def with_overwrites(self, overwrites: TextToEmbeddingOverwrites):
+    def with_overwrites(self, overwrites: PipelineOverwrites):
         return replace(self, **overwrites)
 
 
@@ -80,11 +73,11 @@ class HFEmbeddingToTextPipeline(Pipeline):
             Dict[str, List[str]]: The batch with reconstructed texts added.
         """
         for column in self.config.columns:
-            embeddings = batch[f"{column}_embeddings"]
+            embeddings = batch[column]
             logger.info(f"Embeddings: {embeddings}")
             reconstructed_texts = self.decode_embeddings(embeddings)
             logger.info(f"Reconstructed Texts: {reconstructed_texts}")
-            batch[f"{column}_reconstructed"] = reconstructed_texts
+            batch[f"{column}_{self.config.output_column_suffix}"] = reconstructed_texts
         return batch
 
     def decode_embeddings(self, embeddings: List[Any]) -> List[str]:
@@ -139,7 +132,7 @@ class HFTextToEmbeddingPipeline(Pipeline):
                         # If it's a single string, treat it as one sentence
                         embeddings = self.encode_texts([item])
                     sentence_embeddings.append(embeddings)
-                batch[f"{column}_embeddings"] = sentence_embeddings
+                batch[f"{column}_{self.config.output_column_suffix}"] = sentence_embeddings
             else:
                 logger.warning(f"Column {column} not found in batch.")
         return batch

@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from dataclasses import dataclass, replace
 from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig
 from datasets import Dataset
-from evaluate import load
+from evaluate import load as eval_load
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ class MetricPipelineConfig(PipelineConfig):
         metric_name (str): The name of the metric to be used for evaluation.
         low_score_threshold (float): The threshold below which the score is considered low.
     """
+    reconstructed_column: str = None
     metric_name: str = "bleu"
     low_score_threshold: float = 0.5
 
@@ -38,7 +39,7 @@ class MetricAnalyzerPipeline(Pipeline):
 
     def __post_init__(self):
         logger.info(f"Loading metric: {self.config.metric_name}...")
-        self.metric = load(self.config.metric_name)
+        self.metric = eval_load(self.config.metric_name)
         logger.info(f"Metric {self.config.metric_name} loaded successfully.")
 
     def compute_metric(self, original_data: List[Any], reconstructed_data: List[Any]) -> Dict[str, Any]:
@@ -77,34 +78,9 @@ class MetricAnalyzerPipeline(Pipeline):
 
         for column in self.config.columns:
             original_data = batch[column]
-            reconstructed_data = batch[column + '_reconstructed']
+            reconstructed_data = batch[self.config.reconstructed_column]
             metric_score = self.compute_metric(
                 original_data, reconstructed_data)
-            batch[column + '_metric_score'] = [metric_score] * \
+            batch[f"column_{self.config.output_column_suffix}"] = [metric_score] * \
                 len(original_data)
         return batch
-
-    def __call__(self, dataset: Dataset) -> Dataset:
-        """
-        Processes the dataset and updates it.
-
-        Args:
-            dataset (Dataset): The dataset to process.
-
-        Returns:
-            Dataset: The updated dataset.
-        """
-        try:
-            logger.info("Starting to process dataset...")
-
-            updated_dataset = dataset.map(
-                lambda batch: self.process_batch(batch),
-                batched=True,
-                batch_size=self.config.batch_size,
-                load_from_cache_file=False
-            )
-
-            return updated_dataset
-        except Exception as e:
-            logger.error(f"Error processing dataset: {e}")
-            raise
