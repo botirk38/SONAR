@@ -1,8 +1,8 @@
 import logging
 from typing import List, Dict, Any
 from dataclasses import dataclass, replace
-from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig
-from evaluate import load as eval_load
+from datasets import load_metric as eval_load
+from .pipeline import Pipeline, PipelineConfig, PipelineOverwrites
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +83,4 @@ class MetricAnalyzerPipeline(Pipeline):
             batch[f"column_{self.config.output_column_suffix}"] = [metric_score] * \
                 len(original_data)
         return batch
+
