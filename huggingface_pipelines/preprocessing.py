@@ -121,10 +121,6 @@ class TextPreprocessingPipeline(PreprocessingPipeline):
         return [sent.text.strip() for sent in doc.sents]
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
 @dataclass
 class AudioPreprocessingPipelineConfig(PipelineConfig):
     """

@@ -2,7 +2,6 @@ import logging
 from typing import List, Dict, Any
 from dataclasses import dataclass, replace
 from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig
-from datasets import Dataset
 from evaluate import load as eval_load
 
 logger = logging.getLogger(__name__)
