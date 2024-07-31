@@ -53,7 +53,7 @@ class MetricAnalyzerPipeline(Pipeline):
             Dict[str, Any]: A dictionary containing the metric score.
         """
         logger.info(f"Computing {self.config.metric_name} score...")
-        references = [[text] for text in original_data]
+        references = [text for text in original_data]
         predictions = reconstructed_data
 
         # Compute the metric
@@ -83,4 +83,3 @@ class MetricAnalyzerPipeline(Pipeline):
             batch[f"column_{self.config.output_column_suffix}"] = [metric_score] * \
                 len(original_data)
         return batch
-
