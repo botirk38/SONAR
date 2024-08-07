@@ -21,6 +21,8 @@ class TextToEmbeddingOverwrites(PipelineOverwrites, total=False):
     """
 
     max_seq_len: int
+    encoder_model: str = "text_sonar_basic_encoder"
+    source_lang: str = "eng_Latn"
 
 
 class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
