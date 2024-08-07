@@ -21,8 +21,8 @@ class TextToEmbeddingOverwrites(PipelineOverwrites, total=False):
     """
 
     max_seq_len: int
-    encoder_model: str = "text_sonar_basic_encoder"
-    source_lang: str = "eng_Latn"
+    encoder_model: str
+    source_lang: str
 
 
 class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
@@ -52,6 +52,8 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
     """
 
     max_seq_len: int = None
+    encoder_model: str = "text_sonar_basic_encoder"
+    source_lang: str = "eng_Latn"
 
     def with_overwrites(self, overwrites: EmbeddingToTextOverwrites) -> 'TextToEmbeddingPipelineConfig':
         """
