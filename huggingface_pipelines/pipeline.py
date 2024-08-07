@@ -6,6 +6,7 @@ from datasets import Dataset, IterableDataset
 import os
 from contextlib import contextmanager
 import torch
+import gc
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -123,10 +124,12 @@ class Pipeline(ABC):
         """
         try:
             if torch.cuda.is_available() and self.config.device == 'cuda':
+                gc.collect()
                 torch.cuda.empty_cache()
             yield
         finally:
             if torch.cuda.is_available() and self.config.device == 'cuda':
+                gc.collect()
                 torch.cuda.empty_cache()
 
     @abstractmethod
@@ -230,4 +233,3 @@ class Pipeline(ABC):
         )
 
         return updated_dataset
-
