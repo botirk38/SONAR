@@ -21,6 +21,14 @@ class TextToEmbeddingOverwrites(PipelineOverwrites, total=False):
             max_seq_len (int): Number of a tokens per sequence. Defaults to None which means maximum for model.
             encoder_model (str): The name or path of the model to be used for encoding texts into embeddings.
             source_lang (str): The source language code for the texts to be encoded.
+
+        Example:
+            config = TextToEmbeddingOverwrites(
+                max_seq_len=512,
+                encoder_model="text_sonar_basic_encoder",
+                source_lang="eng_Latn",
+            )
+
     """
 
     max_seq_len: int
@@ -35,6 +43,13 @@ class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
     Attributes:
         decoder_model (str): The name or path of the decoder model to use.
         target_lang (str): The target language for decoding.
+
+    Example:
+        config = EmbeddingToTextOverwrites(
+            decoder_model="text_sonar_basic_encoder",
+            target_lang="eng_Latn",
+        )
+
     """
     decoder_model: str
     target_lang: str
@@ -62,6 +77,17 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
         output_column_suffix (str): Suffix to append to the output column names.
         batch_size (int): Number of items to process in each batch.
         device (str): The device to use for computation (e.g., 'cpu' or 'cuda').
+
+
+     Example:
+        config = TextToEmbeddingPipelineConfig(
+            encoder_model="text_sonar_basic_encoder",
+            source_lang="eng_Latn",
+            columns=["text"],
+            output_column_suffix="embedding",
+            batch_size=32,
+            device="cuda"
+        )
     """
 
     max_seq_len: int = None
@@ -93,6 +119,19 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
         output_column_suffix (str): Suffix to append to the output column names.
         batch_size (int): Number of items to process in each batch.
         device (str): The device to use for computation (e.g., 'cpu' or 'cuda').
+
+
+    Example:
+
+            config = EmbeddingToTextPipelineConfig(
+            decoder_model="text_sonar_basic_encoder",
+            target_lang="eng_Latn",
+            columns=["text"],
+            output_column_suffix="embedding",
+            batch_size=32,
+            device="cuda"
+        )
+
     """
     decoder_model: str = "text_sonar_basic_decoder"
     target_lang: str = "eng_Latn"
@@ -112,6 +151,7 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
 
 class HFEmbeddingToTextPipeline(Pipeline):
     def __init__(self, config: EmbeddingToTextPipelineConfig):
+        super().__init__(config)
         logger.info("Initializing embedding to text model...")
         self.config = config
         self.t2t_model = EmbeddingToTextModelPipeline(
@@ -122,6 +162,13 @@ class HFEmbeddingToTextPipeline(Pipeline):
         logger.info("Model initialized.")
 
     def process_batch(self, batch: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Process a batch of embeddings and convert them to text.
+        Args:
+            batch (Dict[str, Any]): Input batch containing embeddings.
+        Returns:
+            Dict[str, List[str]]: Processed batch with decoded texts.
+        """
         for column in self.config.columns:
             embeddings = batch[column]
             assert all(isinstance(item, list) for item in embeddings), \
@@ -144,6 +191,15 @@ class HFEmbeddingToTextPipeline(Pipeline):
         return batch
 
     def decode_embeddings(self, embeddings: np.ndarray) -> List[str]:
+        """
+        Decode a batch of embeddings into text.
+        Args:
+            embeddings (np.ndarray): Array of embeddings to decode.
+        Returns:
+            List[str]: List of decoded texts.
+        Raises:
+            Exception: If there's an error during decoding.
+        """
         try:
             logger.info(f"Decoding {len(embeddings)} embeddings...")
             embeddings_tensor = torch.from_numpy(embeddings).float()
@@ -168,13 +224,51 @@ class HFEmbeddingToTextPipeline(Pipeline):
 
 
 class EmbeddingToTextPipelineFactory:
+
+    """
+    Factory class for creating EmbeddingToText pipelines.
+
+    Example:
+        factory = EmbeddingToTextPipelineFactory()
+        config = {
+            "decoder_model": "text_sonar_basic_decoder",
+            "columns": ["embedding"],
+            "output_column_suffix": "text",
+            "batch_size": 32,
+            "device": "cuda"
+        }
+        pipeline = factory.create_pipeline(config)
+    """
+
     def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
         pipeline_config = EmbeddingToTextPipelineConfig(**config)
         return HFEmbeddingToTextPipeline(pipeline_config)
 
 
 class HFTextToEmbeddingPipeline(Pipeline):
+
+    """
+    Pipeline for converting embeddings back to text using a Hugging Face model.
+
+
+    Example:
+        config = TextToEmbeddingPipelineConfig(
+            encoder_model="text_sonar_basic_encoder",
+            columns=["text"],
+            output_column_suffix="embedding",
+            batch_size=32,
+            device="cuda"
+        )
+        pipeline = HFTextToEmbeddingPipeline(config)
+
+    """
+
     def __init__(self, config: TextToEmbeddingPipelineConfig):
+        """
+        Initialize the embedding-to-text pipeline.
+        Args:
+            config (EmbeddingToTextPipelineConfig): Configuration for the pipeline.
+        """
         super().__init__(config)
         logger.info("Initializing text to embedding model...")
         self.config = config
@@ -185,6 +279,13 @@ class HFTextToEmbeddingPipeline(Pipeline):
         )
 
     def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process a batch of embeddings and convert them to text.
+        Args:
+            batch (Dict[str, Any]): Input batch containing embeddings.
+        Returns:
+            Dict[str, List[str]]: Processed batch with decoded texts.
+        """
         for column in self.config.columns:
             if column in batch:
                 assert all(isinstance(item, list) for item in batch[column]), \
@@ -209,6 +310,15 @@ class HFTextToEmbeddingPipeline(Pipeline):
         return batch
 
     def encode_texts(self, texts: List[str]) -> np.ndarray:
+        """
+        Encode a list of texts into embeddings.
+        Args:
+            texts (List[str]): List of texts to encode.
+        Returns:
+            np.ndarray: Array of embeddings.
+        Raises:
+            Exception: If there's an error during encoding.
+        """
         try:
             embeddings = []
             for i in range(0, len(texts), self.config.batch_size):
@@ -216,8 +326,6 @@ class HFTextToEmbeddingPipeline(Pipeline):
                 batch_embeddings = self.t2vec_model.predict(
                     batch_texts, source_lang=self.config.source_lang, batch_size=self.config.batch_size, max_seq_len=self.config.max_seq_len)
 
-                batch_embeddings = [emb.cpu().numpy()
-                                    for emb in batch_embeddings]
                 embeddings.extend(batch_embeddings)
             return np.array(embeddings)
         except Exception as e:
@@ -226,6 +334,21 @@ class HFTextToEmbeddingPipeline(Pipeline):
 
 
 class TextToEmbeddingPipelineFactory(PipelineFactory):
+    """
+        Factory class for creating TextToEmbedding pipelines.
+
+        Example:
+            factory = TextToEmbeddingPipelineFactory()
+            config = {
+                "encoder_model": "text_sonar_basic_encoder",
+                "columns": ["text"],
+                "output_column_suffix": "embedding",
+                "batch_size": 32,
+                "device": "cuda"
+            }
+            pipeline = factory.create_pipeline(config)
+    """
+
     def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
         pipeline_config = TextToEmbeddingPipelineConfig(**config)
         return HFTextToEmbeddingPipeline(pipeline_config)
