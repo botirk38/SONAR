@@ -57,7 +57,7 @@ class HFSpeechToEmbeddingPipelineConfig(PipelineConfig):
         pad_idx (int): The index used for padding. Defaults to 0.
         audio_column (str): The name of the column containing audio data. Defaults to "audio".
     """
-    encoder_model: str
+    encoder_model: str = "text_sonar_basic_encoder"
     fbank_dtype: torch.dtype = torch.float32
     n_parallel: int = 4
     pad_idx: int = 0
@@ -161,7 +161,7 @@ class HFSpeechToEmbeddingPipeline(Pipeline):
                     emb, (0, 0, 0, max_seq_len - emb.shape[0])) for emb in all_embeddings]
 
                 # Stack embeddings into a single tensor
-                stacked_embeddings = torch.stack(padded_embeddings)
+                stacked_embeddings = torch.stack(padded_embeddings).squeeze(1)
 
                 batch[f"{self.config.audio_column}_embedding"] = stacked_embeddings.cpu(
                 ).numpy()
