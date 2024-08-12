@@ -2,7 +2,7 @@ import logging
 from typing import List, Dict, Any
 from dataclasses import dataclass, field
 from datasets import load_metric
-from .pipeline import PipelineConfig, Pipeline, PipelineOverwrites
+from .pipeline import PipelineConfig, Pipeline, PipelineOverwrites, PipelineFactory
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +106,8 @@ class MetricAnalyzerPipeline(Pipeline):
 
         return batch
 
+
+class MetricAnalyzerPipelineFactory(PipelineFactory):
+    def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
+        pipeline_config = MetricPipelineConfig(**config)
+        return MetricAnalyzerPipeline(pipeline_config)

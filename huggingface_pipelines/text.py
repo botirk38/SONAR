@@ -1,10 +1,11 @@
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline, EmbeddingToTextModelPipeline
 import logging
 from typing import List, Dict, Any
-from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig
+from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig, PipelineFactory
 import torch
 from dataclasses import dataclass, replace
 import numpy as np
+from .dataset import DatasetConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +38,16 @@ class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
     """
     decoder_model: str
     target_lang: str
+
+
+@dataclass
+class TextDatasetConfig(DatasetConfig):
+    """
+    Configuration for text datasets.
+
+    This class inherits from BaseDatasetConfig and can be used for
+    text-specific dataset configurations.
+    """
 
 
 @dataclass
@@ -99,10 +110,6 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
         return replace(self, **overwrites)
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
 class HFEmbeddingToTextPipeline(Pipeline):
     def __init__(self, config: EmbeddingToTextPipelineConfig):
         logger.info("Initializing embedding to text model...")
@@ -160,8 +167,15 @@ class HFEmbeddingToTextPipeline(Pipeline):
             raise
 
 
+class EmbeddingToTextPipelineFactory:
+    def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
+        pipeline_config = EmbeddingToTextPipelineConfig(**config)
+        return HFEmbeddingToTextPipeline(pipeline_config)
+
+
 class HFTextToEmbeddingPipeline(Pipeline):
     def __init__(self, config: TextToEmbeddingPipelineConfig):
+        super().__init__(config)
         logger.info("Initializing text to embedding model...")
         self.config = config
         self.t2vec_model = TextToEmbeddingModelPipeline(
@@ -209,3 +223,9 @@ class HFTextToEmbeddingPipeline(Pipeline):
         except Exception as e:
             logger.error(f"Error encoding texts or sentences: {e}")
             raise
+
+
+class TextToEmbeddingPipelineFactory(PipelineFactory):
+    def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
+        pipeline_config = TextToEmbeddingPipelineConfig(**config)
+        return HFTextToEmbeddingPipeline(pipeline_config)

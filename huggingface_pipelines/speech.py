@@ -7,6 +7,7 @@ import tempfile
 import soundfile as sf
 import logging
 from .pipeline import Pipeline, PipelineConfig, PipelineOverwrites
+from .dataset import DatasetConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,20 @@ class HFSpeechToEmbeddingOverwrites(PipelineOverwrites, total=False):
     n_parallel: int
     pad_idx: int
     audio_column: str
+
+
+@dataclass
+class AudioDatasetConfig(DatasetConfig):
+    """
+    Configuration for audio datasets.
+
+    This class inherits from BaseDatasetConfig and includes
+    audio-specific attributes and processing.
+
+    Attributes:
+        sampling_rate (int): The target sampling rate for audio data.
+    """
+    sampling_rate: int = 16000
 
 
 @dataclass
@@ -166,4 +181,3 @@ class HFSpeechToEmbeddingPipeline(Pipeline):
                 os.unlink(temp_file.name)
 
         return batch
-

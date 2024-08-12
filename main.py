@@ -3,13 +3,15 @@ import logging
 import os
 from huggingface_pipelines.preprocessing import TextPreprocessingPipelineConfig, TextPreprocessingPipeline
 from datasets import Dataset
-from huggingface_pipelines.dataset import DatasetConfig
 from huggingface_pipelines.text import (
     HFEmbeddingToTextPipeline, HFTextToEmbeddingPipeline,
     TextToEmbeddingPipelineConfig, EmbeddingToTextPipelineConfig,
-    EmbeddingToTextOverwrites
+    EmbeddingToTextOverwrites, TextDatasetConfig
 
 )
+
+from huggingface_pipelines.pipeline_builder import PipelineBuilder
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,82 +19,36 @@ logger = logging.getLogger(__name__)
 
 def main():
     # Configure and load the initial dataset
-    dataset_config = DatasetConfig(
+    dataset_config = TextDatasetConfig(
         dataset_name="ag_news",
         dataset_split="test",
         output_dir="results",
-        streaming=True
+        trust_remote_code=True
 
     )
     dataset = dataset_config.load_dataset()
 
-    preprocessing_config = TextPreprocessingPipelineConfig(
-        columns=["text"],
-        dataset_config=dataset_config,
-        handle_missing='skip',
-        source_lang="eng_Latn",
-        batch_size=5,
-        take=1,
-        output_column_suffix="preprocessed"
-    )
+    builder = PipelineBuilder()
 
-    preprocessing_pipeline = TextPreprocessingPipeline(preprocessing_config)
+    preprocessing_pipeline = builder.create_pipeline(
+        "ag_news", "text_preprocessing")
+
     dataset = preprocessing_pipeline(dataset)
 
-    # Build configuration for text to embedding pipeline
-    text_to_embedding_config = TextToEmbeddingPipelineConfig(
-        columns=["text_preprocessed"],
-        batch_size=5,
-        device="cpu",
-        take=1,
-        encoder_model="text_sonar_basic_encoder",
-        source_lang="eng_Latn",
-        dataset_config=dataset_config,
-        output_column_suffix="embeddings"
-    )
+    text_to_embedding_pipeline = builder.create_pipeline(
+        "ag_news", "text_to_embedding")
 
-    # Initialize and run the text to embedding pipeline
-    text_to_embedding_pipeline = HFTextToEmbeddingPipeline(
-        text_to_embedding_config)
     dataset = text_to_embedding_pipeline(dataset)
 
     # Build configuration for embedding to text pipeline
-    embedding_to_text_config = EmbeddingToTextPipelineConfig(
-        columns=["text_preprocessed_embeddings"],
-        batch_size=5,
-        device="cpu",
-        take=1,
-        decoder_model="text_sonar_basic_decoder",
-        target_lang="eng_Latn",
-        dataset_config=dataset_config,
-        output_column_suffix="reconstructed"
-    )
-    # Initialize and run the embedding to text pipeline
+    embedding_to_text_pipeline = builder.create_pipeline(
+        "ag_news", "embedding_to_text")
 
-    embedding_to_text_config = embedding_to_text_config
-    embedding_to_text_pipeline = HFEmbeddingToTextPipeline(
-        embedding_to_text_config)
     dataset = embedding_to_text_pipeline(dataset)
 
     # Initialize the metric pipeline config
-    metric_config = MetricPipelineConfig(
-        columns=["text"],
-        reconstructed_column=["text_preprocessed_embeddings_reconstructed"],
-        batch_size=5,
-        device="cpu",
-        take=1,
-        metric_name="bleu",
-        low_score_threshold=0.5,
-        dataset_config=dataset_config,
-        output_column_suffix="rating"
-    )
-    metric_overwrites = MetricOverwrites(
-        dataset_config=dataset_config
 
-    )
-    metric_config = metric_config.with_overwrites(metric_overwrites)
-
-    metrics_pipeline = MetricAnalyzerPipeline(metric_config)
+    metrics_pipeline = builder.create_pipeline("ag_news", "analyze_metric")
 
     # Run metrics pipeline
     dataset = metrics_pipeline(dataset)
@@ -101,7 +57,7 @@ def main():
 
     cache_file_name = f"cache_{metrics_pipeline.__class__.__name__}.parquet"
     cache_file_path = os.path.join(
-        f"{dataset_config.output_dir}_{dataset_config.dataset_name}_{dataset_config.uuid}", cache_file_name)
+        f"{dataset_config.output_dir}_{dataset_config.dataset_name}", cache_file_name)
 
     if not dataset_config.streaming:
         dataset.save_to_disk(cache_file_path, num_proc=4)
