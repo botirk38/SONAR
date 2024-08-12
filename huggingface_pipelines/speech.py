@@ -23,6 +23,20 @@ class HFSpeechToEmbeddingOverwrites(PipelineOverwrites, total=False):
         n_parallel (int): Number of parallel processes for audio processing.
         pad_idx (int): The index used for padding.
         audio_column (str): The name of the column containing audio data.
+
+
+    Example :
+
+        overwrites = HFSpeechToEmbeddingOverwrites(
+
+                        encoder = "sonar_basic_text_encoder",
+                        fbank_dtype = torch.float32,
+                        n_parallel = 4,
+                        pad_idx = 2,
+                        audio_column = "audio"
+
+                    )
+
     """
     encoder_model: str
     fbank_dtype: torch.dtype
@@ -41,7 +55,17 @@ class AudioDatasetConfig(DatasetConfig):
 
     Attributes:
         sampling_rate (int): The target sampling rate for audio data.
+
+    Example:
+
+        dataset_config = AudioDatasetConfig(
+            dataset_name="librispeech_asr",
+            config="clean",
+            trust_remote_code=True,
+            sampling_rate=22050
+        )
     """
+
     sampling_rate: int = 16000
 
 
@@ -56,6 +80,23 @@ class HFSpeechToEmbeddingPipelineConfig(PipelineConfig):
         n_parallel (int): Number of parallel processes for audio processing. Defaults to 4.
         pad_idx (int): The index used for padding. Defaults to 0.
         audio_column (str): The name of the column containing audio data. Defaults to "audio".
+    Example:
+
+        pipeline_config = HFSpeechToEmbeddingPipelineConfig(
+            encoder_model="sonar_speech_encoder_large",
+            fbank_dtype=torch.float16,
+            n_parallel=4,
+            pad_idx=0,
+            audio_column="audio",
+            device="cuda",
+            batch_size=32,
+            columns=["audio", "text"],
+            output_path="/path/to/output",
+            output_column_suffix="embedding"
+        )
+
+        overwrites = HFSpeechToEmbeddingOverwrites(encoder_model="sonar_speech_encoder_small")
+        updated_config = pipeline_config.with_overwrites(overwrites)
     """
     encoder_model: str = "text_sonar_basic_encoder"
     fbank_dtype: torch.dtype = torch.float32
@@ -87,6 +128,17 @@ class HFSpeechToEmbeddingPipeline(Pipeline):
     Attributes:
         config (HFSpeechToEmbeddingPipelineConfig): The configuration for this pipeline.
         model (SpeechToEmbeddingModelPipeline): The underlying model used for embedding generation.
+
+    Example:
+
+        pipeline_config = HFSpeechToEmbeddingPipelineConfig(
+            encoder_model="sonar_speech_encoder",
+            device="cuda",
+            batch_size=16,
+            audio_column="audio"
+        )
+
+        pipeline = HFSpeechToEmbeddingPipeline(pipeline_config)
     """
 
     def __init__(self, config: HFSpeechToEmbeddingPipelineConfig):
