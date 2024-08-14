@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from .text import TextToEmbeddingPipelineFactory, EmbeddingToTextPipelineFactory
-from .preprocessing import TextPreprocessingPipelineFactory, AudioPreprocessingPipelineFactory
+from .preprocessing import TextSegmentationPipelineFactory, AudioPreprocessingPipelineFactory
 from .metric_analyzer import MetricAnalyzerPipelineFactory
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 from .pipeline import Pipeline
 import yaml
 import logging
@@ -17,12 +17,12 @@ class PipelineBuilder:
         self.pipeline_factories = {
             "text_to_embedding": TextToEmbeddingPipelineFactory(),
             "embedding_to_text": EmbeddingToTextPipelineFactory(),
-            "text_preprocessing": TextPreprocessingPipelineFactory(),
+            "text_segmentation": TextSegmentationPipelineFactory(),
             "audio_preprocessing": AudioPreprocessingPipelineFactory(),
             "analyze_metric": MetricAnalyzerPipelineFactory(),
         }
 
-    def load_config(self, dataset_name: str, operation: str) -> Dict[str, Any]:
+    def load_config(self, dataset_name: str, operation: Literal["text_to_embedding", "embedding_to_text", "text_segmentation", "audio_preprocessing", "analyze_metric"]) -> Dict[str, Any]:
         config_file = self.config_dir / \
             f"{dataset_name}/{operation}.yaml"
 

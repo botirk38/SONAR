@@ -1,12 +1,8 @@
-from huggingface_pipelines.metric_analyzer import MetricAnalyzerPipeline, MetricOverwrites, MetricPipelineConfig
 import logging
 import os
-from huggingface_pipelines.preprocessing import TextPreprocessingPipelineConfig, TextPreprocessingPipeline
 from datasets import Dataset
 from huggingface_pipelines.text import (
-    HFEmbeddingToTextPipeline, HFTextToEmbeddingPipeline,
-    TextToEmbeddingPipelineConfig, EmbeddingToTextPipelineConfig,
-    EmbeddingToTextOverwrites, TextDatasetConfig
+    TextDatasetConfig
 
 )
 
@@ -31,7 +27,7 @@ def main():
     builder = PipelineBuilder()
 
     preprocessing_pipeline = builder.create_pipeline(
-        "ag_news", "text_preprocessing")
+        "ag_news", "text_segmentation")
 
     dataset = preprocessing_pipeline(dataset)
 

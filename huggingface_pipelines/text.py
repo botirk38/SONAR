@@ -1,7 +1,7 @@
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline, EmbeddingToTextModelPipeline
 import logging
 from typing import List, Dict, Any
-from .pipeline import Pipeline, PipelineOverwrites, PipelineConfig, PipelineFactory
+from .pipeline import Pipeline, PipelineConfig, PipelineFactory
 import torch
 from dataclasses import dataclass, replace
 import numpy as np
@@ -9,50 +9,6 @@ from .dataset import DatasetConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class TextToEmbeddingOverwrites(PipelineOverwrites, total=False):
-
-    """
-        Overwrite options for TexToEmbeddingPipeline configuration.
-
-
-        Attributes:
-            max_seq_len (int): Number of a tokens per sequence. Defaults to None which means maximum for model.
-            encoder_model (str): The name or path of the model to be used for encoding texts into embeddings.
-            source_lang (str): The source language code for the texts to be encoded.
-
-        Example:
-            config = TextToEmbeddingOverwrites(
-                max_seq_len=512,
-                encoder_model="text_sonar_basic_encoder",
-                source_lang="eng_Latn",
-            )
-
-    """
-
-    max_seq_len: int
-    encoder_model: str
-    source_lang: str
-
-
-class EmbeddingToTextOverwrites(PipelineOverwrites, total=False):
-    """
-    Overwrite options for EmbeddingToTextPipeline configuration.
-
-    Attributes:
-        decoder_model (str): The name or path of the decoder model to use.
-        target_lang (str): The target language for decoding.
-
-    Example:
-        config = EmbeddingToTextOverwrites(
-            decoder_model="text_sonar_basic_encoder",
-            target_lang="eng_Latn",
-        )
-
-    """
-    decoder_model: str
-    target_lang: str
 
 
 @dataclass
@@ -94,18 +50,6 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
     encoder_model: str = "text_sonar_basic_encoder"
     source_lang: str = "eng_Latn"
 
-    def with_overwrites(self, overwrites: EmbeddingToTextOverwrites) -> 'TextToEmbeddingPipelineConfig':
-        """
-        Create a new configuration with the specified overwrites.
-
-        Args:
-            overwrites (PipelineOverwrites): Overwrite values for the configuration.
-
-        Returns:
-            TextToEmbeddingPipelineConfig: A new configuration instance with applied overwrites.
-        """
-        return replace(self, **overwrites)
-
 
 @dataclass
 class EmbeddingToTextPipelineConfig(PipelineConfig):
@@ -135,18 +79,6 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
     """
     decoder_model: str = "text_sonar_basic_decoder"
     target_lang: str = "eng_Latn"
-
-    def with_overwrites(self, overwrites: EmbeddingToTextOverwrites) -> 'EmbeddingToTextPipelineConfig':
-        """
-        Create a new configuration with the specified overwrites.
-
-        Args:
-            overwrites (EmbeddingToTextOverwrites): Overwrite values for the configuration.
-
-        Returns:
-            EmbeddingToTextPipelineConfig: A new configuration instance with applied overwrites.
-        """
-        return replace(self, **overwrites)
 
 
 class HFEmbeddingToTextPipeline(Pipeline):

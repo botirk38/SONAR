@@ -1,48 +1,16 @@
 import os
 import torch
 from typing import Dict, Any
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from sonar.inference_pipelines.speech import SpeechToEmbeddingModelPipeline
 import tempfile
 import soundfile as sf
 import logging
-from .pipeline import Pipeline, PipelineConfig, PipelineOverwrites
+from .pipeline import Pipeline, PipelineConfig
 from .dataset import DatasetConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-class HFSpeechToEmbeddingOverwrites(PipelineOverwrites, total=False):
-    """
-    Overwrite options for HFSpeechToEmbeddingPipeline configuration.
-
-    Attributes:
-        encoder_model (str): The name or path of the encoder model to use.
-        fbank_dtype (torch.dtype): The dtype for the fbank features.
-        n_parallel (int): Number of parallel processes for audio processing.
-        pad_idx (int): The index used for padding.
-        audio_column (str): The name of the column containing audio data.
-
-
-    Example :
-
-        overwrites = HFSpeechToEmbeddingOverwrites(
-
-                        encoder = "sonar_basic_text_encoder",
-                        fbank_dtype = torch.float32,
-                        n_parallel = 4,
-                        pad_idx = 2,
-                        audio_column = "audio"
-
-                    )
-
-    """
-    encoder_model: str
-    fbank_dtype: torch.dtype
-    n_parallel: int
-    pad_idx: int
-    audio_column: str
 
 
 @dataclass
@@ -103,18 +71,6 @@ class HFSpeechToEmbeddingPipelineConfig(PipelineConfig):
     n_parallel: int = 4
     pad_idx: int = 0
     audio_column: str = "audio"
-
-    def with_overwrites(self, overwrites: HFSpeechToEmbeddingOverwrites) -> 'HFSpeechToEmbeddingPipelineConfig':
-        """
-        Create a new configuration with the specified overwrites.
-
-        Args:
-            overwrites (HFSpeechToEmbeddingOverwrites): Overwrite values for the configuration.
-
-        Returns:
-            HFSpeechToEmbeddingPipelineConfig: A new configuration instance with applied overwrites.
-        """
-        return replace(self, **overwrites)
 
 
 class HFSpeechToEmbeddingPipeline(Pipeline):
