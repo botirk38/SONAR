@@ -70,8 +70,6 @@ class MetricAnalyzerPipeline(Pipeline):
             original_data = batch[column]
             reconstructed_data = batch[reconstructed_column]
 
-            # Join back into strings
-
             references = [[ref.split()] for ref in original_data]
             predictions = [pred.split() for pred in reconstructed_data]
 
