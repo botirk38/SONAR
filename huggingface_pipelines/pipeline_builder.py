@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from .text import TextToEmbeddingPipelineFactory, EmbeddingToTextPipelineFactory
-from .preprocessing import TextSegmentationPipelineFactory, AudioPreprocessingPipelineFactory
+from .text import TextToEmbeddingPipelineFactory, EmbeddingToTextPipelineFactory, TextSegmentationPipelineFactory
 from .metric_analyzer import MetricAnalyzerPipelineFactory
 from typing import Dict, Any, Literal
 from .pipeline import Pipeline
@@ -18,7 +17,6 @@ class PipelineBuilder:
             "text_to_embedding": TextToEmbeddingPipelineFactory(),
             "embedding_to_text": EmbeddingToTextPipelineFactory(),
             "text_segmentation": TextSegmentationPipelineFactory(),
-            "audio_preprocessing": AudioPreprocessingPipelineFactory(),
             "analyze_metric": MetricAnalyzerPipelineFactory(),
         }
 
