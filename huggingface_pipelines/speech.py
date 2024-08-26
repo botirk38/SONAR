@@ -211,3 +211,37 @@ class HFAudioToEmbeddingPipeline(Pipeline):
             # Instead of raising, we'll return the batch as is
 
         return batch
+
+
+class AudioToEmbeddingPipelineFactory:
+    """
+    Factory class for creating AudioToEmbedding pipelines.
+
+    This factory creates HFAudioToEmbeddingPipeline instances based on the provided configuration.
+
+    Example:
+        factory = AudioToEmbeddingPipelineFactory()
+        config = {
+            "encoder_model": "sonar_speech_encoder_large",
+            "fbank_dtype": torch.float16,
+            "n_parallel": 4,
+            "pad_idx": 0,
+            "audio_column": "audio",
+            "device": "cuda",
+            "batch_size": 32,
+            "columns": ["audio"],
+            "output_path": "/path/to/output",
+            "output_column_suffix": "embedding"
+        }
+        pipeline = factory.create_pipeline(config)
+    """
+
+    def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
+        """
+        Create an AudioToEmbedding pipeline based on the provided configuration.
+
+        Returns:
+            Pipeline: An instance of HFAudioToEmbeddingPipeline.
+        """
+        pipeline_config = HFAudioToEmbeddingPipelineConfig(**config)
+        return HFAudioToEmbeddingPipeline(pipeline_config)
