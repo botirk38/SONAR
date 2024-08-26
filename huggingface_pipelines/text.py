@@ -8,6 +8,7 @@ import numpy as np
 from .dataset import DatasetConfig
 import spacy
 from spacy.language import Language
+import itertools
 
 
 logging.basicConfig(level=logging.INFO)
@@ -43,7 +44,7 @@ class TextSegmentationPipelineConfig(PipelineConfig):
             output_path='./output',
             fill_value='N/A',
             source_lang='eng_Latn',
-            handle_missing='fill'
+            handle_missing='fill',
         )
     """
     fill_value: Optional[str] = None
@@ -63,9 +64,11 @@ class TextSegmentationPipeline(Pipeline):
         nlp (Language): Loaded spaCy language model for text processing.
 
     Example:
-        config = TextSegmentationPipelineConfig(columns=['text'], output_path='./output')
+        config = TextSegmentationPipelineConfig(
+            columns=['text'], output_path='./output')
         pipeline = TextSegmentationPipeline(config)
-        result = pipeline({'text': ['This is a sample text.', 'Another example.']})
+        result = pipeline(
+            {'text': ['This is a sample text.', 'Another example.']})
     """
 
     SPACY_MODELS = {
@@ -86,7 +89,6 @@ class TextSegmentationPipeline(Pipeline):
             config (TextSegmentationPipelineConfig): Configuration for the text segmentation pipeline.
         """
         super().__init__(config)
-        self.config = config
         self.nlp = self.load_spacy_model(self.config.source_lang)
         logger.info("Text preprocessing model initialized.")
 
@@ -125,7 +127,8 @@ class TextSegmentationPipeline(Pipeline):
             ValueError: If an invalid handle_missing option is specified in the configuration.
 
         Example:
-            sentences = pipeline.segment_text("This is a sample. It has two sentences.")
+            sentences = pipeline.segment_text(
+                "This is a sample. It has two sentences.")
             print(sentences)  # ['This is a sample.', 'It has two sentences.']
         """
         if text is None or (isinstance(text, str) and text.strip() == ''):
@@ -155,7 +158,8 @@ class TextSegmentationPipeline(Pipeline):
         Example:
             batch = {'text': ['Sample text.', 'Another example.']}
             result = pipeline.process_batch(batch)
-            print(result)  # {'text': ['Sample text.', 'Another example.'], 'text_preprocessed': [['Sample text.'], ['Another example.']]}
+            # {'text': ['Sample text.', 'Another example.'], 'text_preprocessed': [['Sample text.'], ['Another example.']]}
+            print(result)
         """
         for column in self.config.columns:
             if column in batch:
@@ -201,6 +205,7 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
         batch_size (int): Number of items to process in each batch.
         device (str): The device to use for computation (e.g., 'cpu' or 'cuda').
         max_seq_len (int): Maximum sequence length for input texts.
+        dtype (torch.dtype): The data type of the output embeddings.
 
     Example:
         config = TextToEmbeddingPipelineConfig(
@@ -210,12 +215,15 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
             output_column_suffix="embedding",
             batch_size=32,
             device="cuda",
-            max_seq_len=512
+            max_seq_len=512,
+            dtype = torch.float16
+
         )
     """
     max_seq_len: int = None
     encoder_model: str = "text_sonar_basic_encoder"
     source_lang: str = "eng_Latn"
+    dtype: torch.dtype = torch.float32
 
 
 @dataclass
@@ -243,6 +251,7 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
     """
     decoder_model: str = "text_sonar_basic_decoder"
     target_lang: str = "eng_Latn"
+    dtype: torch.dtype = torch.float32
 
 
 class HFEmbeddingToTextPipeline(Pipeline):
@@ -265,7 +274,6 @@ class HFEmbeddingToTextPipeline(Pipeline):
         """
         super().__init__(config)
         logger.info("Initializing embedding to text model...")
-        self.config = config
         self.t2t_model = EmbeddingToTextModelPipeline(
             decoder=self.config.decoder_model,
             tokenizer=self.config.decoder_model,
@@ -273,35 +281,50 @@ class HFEmbeddingToTextPipeline(Pipeline):
         )
         logger.info("Model initialized.")
 
-    def process_batch(self, batch: Dict[str, Any]) -> Dict[str, List[str]]:
+    def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a batch of embeddings and convert them to text.
+        Handles both list of individual embeddings or list of lists that contain embeddings
 
         Args:
-            batch (Dict[str, Any]): Input batch containing embeddings.
+            batch (Dict[str, Any]): Input batch containing texts.
 
         Returns:
-            Dict[str, List[str]]: Processed batch with decoded texts.
+            Dict[str, Any]: Processed batch with encoded embeddings.
         """
+
         for column in self.config.columns:
-            embeddings = batch[column]
-            assert all(isinstance(item, list) for item in embeddings), \
-                f"Column {column} must contain only lists of embeddings, not individual embeddings."
+            if column in batch:
+                embeddings = batch[column]
 
-            all_embeddings = np.vstack([np.array(embed)
-                                       for item in embeddings for embed in item])
-            all_decoded_texts = self.decode_embeddings(all_embeddings)
+                # Check if the input is a list of individual embeddings or a list of lists
+                if all(isinstance(item, (np.ndarray, list)) and not isinstance(item[0], (list, np.ndarray)) for item in embeddings):
+                    # Case: List of individual embeddings
+                    all_embeddings = np.array(embeddings)
+                    all_decoded_texts = self.decode_embeddings(all_embeddings)
+                    batch[f"{column}_{self.config.output_column_suffix}"] = all_decoded_texts
+                else:
+                    # Case: List of lists of embeddings
+                    all_embeddings = np.vstack(
+                        [np.array(embed) for item in embeddings for embed in item])
+                    all_decoded_texts = self.decode_embeddings(all_embeddings)
 
-            reconstructed_texts = []
-            start_idx = 0
-            for item in embeddings:
-                end_idx = start_idx + len(item)
-                reconstructed_texts.append(
-                    all_decoded_texts[start_idx:end_idx])
-                start_idx = end_idx
+                    # Calculate the cumulative sum of lengths
+                    lengths = [len(item) if isinstance(item, list)
+                               else 1 for item in embeddings]
+                    indices = list(itertools.accumulate(lengths))
 
-            batch[f"{column}_{self.config.output_column_suffix}"] = reconstructed_texts
-            logger.debug(f"{column} column reconstructed: {batch[column][:5]}")
+                    # Use the indices to slice all_decoded_texts
+                    reconstructed_texts = [
+                        all_decoded_texts[start:end]
+                        for start, end in zip([0] + indices[:-1], indices)
+                    ]
+                    batch[f"{column}_{self.config.output_column_suffix}"] = reconstructed_texts
+
+                logger.debug(
+                    f"{column} column reconstructed: {batch[f'{column}_{self.config.output_column_suffix}'][:5]}")
+            else:
+                logger.warning(f"Column {column} not found in batch.")
 
         return batch
 
@@ -398,7 +421,6 @@ class HFTextToEmbeddingPipeline(Pipeline):
         """
         super().__init__(config)
         logger.info("Initializing text to embedding model...")
-        self.config = config
         self.t2vec_model = TextToEmbeddingModelPipeline(
             encoder=self.config.encoder_model,
             tokenizer=self.config.encoder_model,
@@ -408,6 +430,7 @@ class HFTextToEmbeddingPipeline(Pipeline):
     def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a batch of texts and convert them to embeddings.
+        Handles both individual strings and lists of sentences.
 
         Args:
             batch (Dict[str, Any]): Input batch containing texts.
@@ -417,24 +440,33 @@ class HFTextToEmbeddingPipeline(Pipeline):
         """
         for column in self.config.columns:
             if column in batch:
-                assert all(isinstance(item, list) for item in batch[column]), \
-                    f"Column {column} must contain only lists of sentences, not individual strings."
+                # Check if the input is a list of strings or a list of lists
+                if all(isinstance(item, str) for item in batch[column]):
+                    # Case: List of individual strings
+                    all_texts = batch[column]
+                    all_embeddings = self.encode_texts(all_texts)
+                    batch[f"{column}_{self.config.output_column_suffix}"] = all_embeddings
+                else:
+                    # Case: List of lists (sentences)
+                    all_sentences = [sentence for item in batch[column]
+                                     for sentence in item]
+                    all_embeddings = self.encode_texts(all_sentences)
 
-                all_sentences = [sentence for item in batch[column]
-                                 for sentence in item]
-                all_embeddings = self.encode_texts(all_sentences)
+                    # Calculate the cumulative sum of lengths
+                    lengths = [len(item) if isinstance(item, list)
+                               else 1 for item in batch[column]]
+                    indices = list(itertools.accumulate(lengths))
 
-                sentence_embeddings = []
-                start_idx = 0
-                for item in batch[column]:
-                    end_idx = start_idx + len(item)
-                    sentence_embeddings.append(
-                        all_embeddings[start_idx:end_idx])
-                    start_idx = end_idx
+                    # Use the indices to slice all_embeddings
+                    sentence_embeddings = [
+                        all_embeddings[start:end]
+                        for start, end in zip([0] + indices[:-1], indices)
+                    ]
 
-                batch[f"{column}_{self.config.output_column_suffix}"] = sentence_embeddings
+                    batch[f"{column}_{self.config.output_column_suffix}"] = sentence_embeddings
+
                 logger.debug(
-                    f"{column} column embeddings: {batch[column][:5]}")
+                    f"{column} column embeddings: {batch[f'{column}_{self.config.output_column_suffix}'][:5]}")
             else:
                 logger.warning(f"Column {column} not found in batch.")
 
@@ -463,12 +495,12 @@ class HFTextToEmbeddingPipeline(Pipeline):
                     batch_size=self.config.batch_size,
                     max_seq_len=self.config.max_seq_len
                 )
-
+                batch_embeddings = batch_embeddings.to(dtype=self.config.dtype)
                 batch_embeddings = batch_embeddings.detach().cpu().numpy()
                 embeddings.extend(batch_embeddings)
 
             # We return this as np array for more efficient memory representation
-            return np.array(embeddings)
+            return np.vstack(embeddings)
         except Exception as e:
             logger.error(f"Error encoding texts or sentences: {e}")
             raise
