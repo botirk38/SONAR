@@ -163,7 +163,7 @@ class TextSegmentationPipeline(Pipeline):
         """
         for column in self.config.columns:
             if column in batch:
-                batch[f"{column}_preprocessed"] = [
+                batch[f"{column}_{self.config.output_column_suffix}"] = [
                     self.segment_text(text) for text in batch[column]]
         return batch
 
@@ -300,13 +300,13 @@ class HFEmbeddingToTextPipeline(Pipeline):
                 # Check if the input is a list of individual embeddings or a list of lists
                 if all(isinstance(item, (np.ndarray, list)) and not isinstance(item[0], (list, np.ndarray)) for item in embeddings):
                     # Case: List of individual embeddings
-                    all_embeddings = np.array(embeddings)
+                    all_embeddings = np.asarray(embeddings)
                     all_decoded_texts = self.decode_embeddings(all_embeddings)
                     batch[f"{column}_{self.config.output_column_suffix}"] = all_decoded_texts
                 else:
                     # Case: List of lists of embeddings
                     all_embeddings = np.vstack(
-                        [np.array(embed) for item in embeddings for embed in item])
+                        [np.asarray(embed) for item in embeddings for embed in item])
                     all_decoded_texts = self.decode_embeddings(all_embeddings)
 
                     # Calculate the cumulative sum of lengths
@@ -499,7 +499,6 @@ class HFTextToEmbeddingPipeline(Pipeline):
                 batch_embeddings = batch_embeddings.detach().cpu().numpy()
                 embeddings.extend(batch_embeddings)
 
-            # We return this as np array for more efficient memory representation
             return np.vstack(embeddings)
         except Exception as e:
             logger.error(f"Error encoding texts or sentences: {e}")
@@ -519,7 +518,8 @@ class TextToEmbeddingPipelineFactory(PipelineFactory):
             "columns": ["text"],
             "output_column_suffix": "embedding",
             "batch_size": 32,
-            "device": "cuda"
+            "device": "cuda",
+            "dtype": "torch.float32"
         }
         pipeline = factory.create_pipeline(config)
     """
@@ -536,3 +536,4 @@ class TextToEmbeddingPipelineFactory(PipelineFactory):
         """
         pipeline_config = TextToEmbeddingPipelineConfig(**config)
         return HFTextToEmbeddingPipeline(pipeline_config)
+
