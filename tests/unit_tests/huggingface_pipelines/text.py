@@ -1,15 +1,12 @@
 import pytest
 import numpy as np
-from unittest.mock import Mock, patch
-from typing import Dict, Any
+from unittest.mock import patch
 
 from huggingface_pipelines.text import (
     TextToEmbeddingPipelineConfig,
     EmbeddingToTextPipelineConfig,
     HFTextToEmbeddingPipeline,
     HFEmbeddingToTextPipeline,
-    TextToEmbeddingPipelineFactory,
-    EmbeddingToTextPipelineFactory
 )
 
 
@@ -141,3 +138,49 @@ def test_embedding_to_text_large_batch(embedding_to_text_config, mock_embedding_
     assert len(result["embedding_text"]) == 2
     assert all(len(text) == 100 for text in result["embedding_text"])
 
+
+def test_text_to_embedding_process_batch_complicated(text_to_embedding_config, mock_text_to_embedding_model):
+    pipeline = HFTextToEmbeddingPipeline(text_to_embedding_config)
+    batch = {
+        "text": [
+            ["The quick brown fox jumps over the lazy dog."],
+            ["This is a test sentence.", "And another one."],
+            [],
+            ["Short.", "Medium length sentence.", "Longer sentence with more words.",
+                "Very long sentence that goes on and on with many more words than the others."]
+        ]
+    }
+    result = pipeline.process_batch(batch)
+
+    assert "text_embedding" in result
+    assert len(result["text_embedding"]) == 4
+    assert all(isinstance(item, np.ndarray)
+               for sublist in result["text_embedding"] for item in sublist)
+    assert len(result["text_embedding"][0]) == 1
+    assert len(result["text_embedding"][1]) == 2
+    assert len(result["text_embedding"][2]) == 0
+    assert len(result["text_embedding"][3]) == 4
+
+
+def test_embedding_to_text_process_batch_variable_length_lists(embedding_to_text_config, mock_embedding_to_text_model):
+    pipeline = HFEmbeddingToTextPipeline(embedding_to_text_config)
+    batch = {
+        "embedding": [
+            [np.array([0.1, 0.2, 0.3])],
+            [np.array([0.4, 0.5, 0.6]), np.array([0.7, 0.8, 0.9])],
+            [],
+            [np.array([0.1, 0.1, 0.1]), np.array([0.2, 0.2, 0.2]),
+                np.array([0.3, 0.3, 0.3]), np.array([0.4, 0.4, 0.4])]
+        ]
+    }
+    result = pipeline.process_batch(batch)
+
+    assert "embedding_text" in result
+    assert len(result["embedding_text"]) == 4
+    assert all(isinstance(text, list) for text in result["embedding_text"])
+    assert all(isinstance(item, str)
+               for sublist in result["embedding_text"] for item in sublist)
+    assert len(result["embedding_text"][0]) == 1
+    assert len(result["embedding_text"][1]) == 2
+    assert len(result["embedding_text"][2]) == 0
+    assert len(result["embedding_text"][3]) == 4

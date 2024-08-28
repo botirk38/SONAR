@@ -206,4 +206,3 @@ class PipelineFactory(ABC):
     @abstractmethod
     def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
         pass
-
