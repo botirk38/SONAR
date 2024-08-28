@@ -181,20 +181,9 @@ class HFAudioToEmbeddingPipeline(Pipeline):
                         pad_idx=self.config.pad_idx
                     )
 
-                    # Ensure all embeddings are 2D
-                    all_embeddings = [emb.unsqueeze(0) if emb.dim(
-                    ) == 1 else emb for emb in all_embeddings]
-
-                    # Get the maximum sequence length
-                    max_seq_len = max(emb.shape[0] for emb in all_embeddings)
-
-                    # Pad embeddings to have the same sequence length
-                    padded_embeddings = [torch.nn.functional.pad(
-                        emb, (0, 0, 0, max_seq_len - emb.shape[0])) for emb in all_embeddings]
-
                     # Stack embeddings into a single tensor
                     stacked_embeddings = torch.stack(
-                        padded_embeddings).unsqueeze(1)
+                        all_embeddings)
 
                     batch[f"{column}_{self.config.output_column_suffix}"] = stacked_embeddings.cpu(
                     ).numpy()
@@ -202,13 +191,13 @@ class HFAudioToEmbeddingPipeline(Pipeline):
                 except Exception as e:
                     logger.error(
                         f"Error in model.predict for column {column}: {str(e)}")
-                    # Instead of raising, we'll set the output to None and continue processing
-                    batch[f"{column}_{self.config.output_column_suffix}"] = None
+                    raise ValueError(
+                        f"Error in model.predict for column {column}: {str(e)}")
 
         except Exception as e:
             logger.error(f"Error processing batch: {str(e)}")
             logger.error(f"Batch content: {batch}")
-            # Instead of raising, we'll return the batch as is
+            raise ValueError(f"Error processing batch: {str(e)}")
 
         return batch
 

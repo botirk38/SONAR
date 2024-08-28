@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from unittest.mock import patch
-
+import torch
 from huggingface_pipelines.text import (
     TextToEmbeddingPipelineConfig,
     EmbeddingToTextPipelineConfig,
@@ -15,7 +15,8 @@ class MockTextToEmbeddingModelPipeline:
         pass
 
     def predict(self, texts, source_lang, batch_size, max_seq_len):
-        return [np.array([0.1, 0.2, 0.3]) for _ in texts]
+        # Create a tensor with shape (len(texts), 3)
+        return torch.tensor([[0.1, 0.2, 0.3] for _ in texts], dtype=torch.float32)
 
 
 class MockEmbeddingToTextModelPipeline:
@@ -101,22 +102,20 @@ def test_embedding_to_text_process_batch(embedding_to_text_config, mock_embeddin
 @pytest.mark.parametrize("invalid_batch", [
     {"text": "Not a list"},
     {"text": [1, 2, 3]},
-    {"text": ["Not a list of lists"]},
 ])
 def test_text_to_embedding_invalid_input(text_to_embedding_config, mock_text_to_embedding_model, invalid_batch):
     pipeline = HFTextToEmbeddingPipeline(text_to_embedding_config)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pipeline.process_batch(invalid_batch)
 
 
 @pytest.mark.parametrize("invalid_batch", [
     {"embedding": "Not a list"},
     {"embedding": [1, 2, 3]},
-    {"embedding": ["Not a list of lists"]},
 ])
 def test_embedding_to_text_invalid_input(embedding_to_text_config, mock_embedding_to_text_model, invalid_batch):
     pipeline = HFEmbeddingToTextPipeline(embedding_to_text_config)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pipeline.process_batch(invalid_batch)
 
 
