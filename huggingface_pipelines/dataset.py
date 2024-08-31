@@ -1,30 +1,5 @@
 from abc import ABC
-from dataclasses import dataclass, replace
-from typing import TypedDict, Any
-
-
-class DatasetOverwrites(TypedDict, total=False):
-    """
-    TypedDict for dataset configuration overwrites.
-
-    Attributes:
-        dataset_name (str): Name of the dataset.
-        dataset_split (str): Split of the dataset (e.g., 'train', 'test').
-        output_dir (str): Directory for output.
-        streaming (bool): Whether to use streaming mode.
-        config (str): Specific dataset configuration.
-        trust_remote_code (bool): Whether to trust remote code.
-        world_size (int): Number of shards for distributed processing.
-        rank (int): Rank of the current process.
-    """
-    dataset_name: str
-    dataset_split: str
-    output_dir: str
-    streaming: bool
-    config: str
-    trust_remote_code: bool
-    world_size: int
-    rank: int
+from dataclasses import dataclass
 
 
 @dataclass
@@ -89,7 +64,7 @@ class DatasetConfig(ABC):
 
         return dataset
 
-    def get_dataset_kwargs(self) -> dict[str, Any]:
+    def get_dataset_kwargs(self) -> dict[str, any]:
         """
         Returns the kwargs for load_dataset function.
 
@@ -116,21 +91,3 @@ class DatasetConfig(ABC):
         """
         assert self.world_size >= 1, f"Invalid world_size: {self.world_size}. It should be >= 1."
         assert 0 <= self.rank < self.world_size, f"Invalid rank: {self.rank}. It should be between 0 and {self.world_size - 1}."
-
-    def with_overwrites(self, overwrites: DatasetOverwrites):
-        """
-        Creates a new instance with specified overwrites.
-
-        This method allows for the creation of a new configuration object
-        with some attributes overwritten, without modifying the original instance.
-
-        Args:
-            overwrites (DatasetOverwrites): A dictionary of attributes to overwrite.
-
-        Returns:
-            BaseDatasetConfig: A new instance with the specified overwrites applied.
-
-        Example:
-            new_config = config.with_overwrites({"dataset_split": "test", "world_size": 4})
-        """
-        return replace(self, **overwrites)
