@@ -7,6 +7,7 @@ from .pipeline import Pipeline, PipelineConfig
 from .dataset import DatasetConfig
 import numpy as np
 from datasets import Audio
+from numpy.typing import DTypeLike
 
 
 logging.basicConfig(level=logging.INFO)
@@ -102,6 +103,7 @@ class HFAudioToEmbeddingPipelineConfig(PipelineConfig):
     fbank_dtype: torch.dtype = torch.float32
     n_parallel: int = 4
     pad_idx: int = 0
+    dtype: DTypeLike = np.float32
 
 
 class HFAudioToEmbeddingPipeline(Pipeline):
@@ -233,15 +235,27 @@ class HFAudioToEmbeddingPipeline(Pipeline):
                     audio_inputs = [tensor.to(self.config.device)
                                     for tensor in audio_inputs]
 
-                    all_embeddings = self.model.predict(
-                        input=audio_inputs,
-                        batch_size=self.config.batch_size,
-                        n_parallel=self.config.n_parallel,
-                        pad_idx=self.config.pad_idx
-                    )
+                    audio_embeddings = []
 
-                    batch[f"{column}_{self.config.output_column_suffix}"] = all_embeddings.cpu(
-                    ).numpy()
+                    for i in range(0, len(audio_inputs), self.config.batch_size):
+                        batch_inputs = audio_inputs[i:i +
+                                                    self.config.batch_size]
+
+                        batch_embeddings = self.model.predict(
+                            input=batch_inputs,
+                            batch_size=self.config.batch_size,
+                            n_parallel=self.config.n_parallel,
+                            pad_idx=self.config.pad_idx
+                        )
+
+                        batch_embeddings = batch_embeddings.to(
+                            self.config.device)
+
+                        batch_embeddings = batch_embeddings.detach().cpu().numpy().astype(self.config.dtype)
+
+                        audio_embeddings.extend(batch_embeddings)
+
+                    batch[f"{column}_{self.config.output_column_suffix}"] = audio_embeddings
 
                 except Exception as e:
                     logger.error(

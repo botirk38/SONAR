@@ -33,7 +33,7 @@ class MetricAnalyzerPipeline(Pipeline):
     """
 
     def __init__(self, config: MetricPipelineConfig):
-        self.config = config
+        super().__init__(config)
         self.metrics = {}
         for metric_name in self.config.metrics:
             logger.info(f"Loading metric: {metric_name}...")
@@ -125,4 +125,3 @@ class MetricAnalyzerPipelineFactory(PipelineFactory):
     def create_pipeline(self, config: Dict[str, Any]) -> Pipeline:
         pipeline_config = MetricPipelineConfig(**config)
         return MetricAnalyzerPipeline(pipeline_config)
-
