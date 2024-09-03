@@ -28,7 +28,7 @@ class PipelineConfig(ABC):
         columns (List[str]): The columns to be processed by the pipeline.
         output_path (str): The directory path for output files.
         output_column_suffix (str): The suffix to append to output column names.
-            This is used to distinguish processed columns from original ones.
+            This is used to distinguish processed columns from original ones. These are always preceded by a '_' e.g. '_results'
         load_from_cache_file (bool): Whether to load the dataset from cache file.
             This can significantly speed up repeated processing of the same dataset.
         batch_size (int): The batch size for processing data. This affects both
