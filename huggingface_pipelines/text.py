@@ -165,6 +165,9 @@ class TextSegmentationPipeline(Pipeline):
             if column in batch:
                 batch[f"{column}_{self.config.output_column_suffix}"] = [
                     self.segment_text(text) for text in batch[column]]
+
+            else:
+                raise ValueError(f"Column {column} not found in batch.")
         return batch
 
 
@@ -205,7 +208,7 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
         batch_size (int): Number of items to process in each batch.
         device (str): The device to use for computation (e.g., 'cpu' or 'cuda').
         max_seq_len (int): Maximum sequence length for input texts.
-        dtype (torch.dtype): The data type of the output embeddings.
+        dtype (np.dtype): The data type of the output numpy embeddings.
 
     Example:
         config = TextToEmbeddingPipelineConfig(
@@ -223,7 +226,7 @@ class TextToEmbeddingPipelineConfig(PipelineConfig):
     max_seq_len: int = None
     encoder_model: str = "text_sonar_basic_encoder"
     source_lang: str = "eng_Latn"
-    dtype: np.dtype = torch.float32
+    dtype: np.dtype = np.float32
 
 
 @dataclass
@@ -238,6 +241,7 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
         output_column_suffix (str): Suffix to append to the output column names.
         batch_size (int): Number of items to process in each batch.
         device (str): The device to use for computation (e.g., 'cpu' or 'cuda').
+        dtype (np.dtype): The data type of the output numpy embeddings.
 
     Example:
         config = EmbeddingToTextPipelineConfig(
@@ -246,12 +250,13 @@ class EmbeddingToTextPipelineConfig(PipelineConfig):
             columns=["embedding"],
             output_column_suffix="text",
             batch_size=32,
-            device="cuda"
+            device="cuda",
+            dtype = np.float16
         )
     """
     decoder_model: str = "text_sonar_basic_decoder"
     target_lang: str = "eng_Latn"
-    dtype: torch.dtype = np.float32
+    dtype: np.dtype = np.float32
 
 
 class HFEmbeddingToTextPipeline(Pipeline):
@@ -297,7 +302,7 @@ class HFEmbeddingToTextPipeline(Pipeline):
             if column in batch:
                 embeddings = batch[column]
 
-                if not isinstance(batch[column], list):
+                if not isinstance(batch[column], (list, np.ndarray)):
                     raise ValueError(
                         f"Expected list for column {column}, got {type(batch[column])}")
 
@@ -346,19 +351,19 @@ class HFEmbeddingToTextPipeline(Pipeline):
         """
         try:
             logger.info(f"Decoding {len(embeddings)} embeddings...")
-
-            embeddings_tensor = torch.from_numpy(embeddings).float()
-
             decoded_texts = []
 
             for i in range(0, len(embeddings), self.config.batch_size):
-                batch_embeddings = embeddings_tensor[i:i +
-                                                     self.config.batch_size]
+                batch_embeddings = embeddings[i:i + self.config.batch_size]
+                batch_embeddings_tensor = torch.from_numpy(
+                    batch_embeddings).float().to(self.config.device)
+
                 batch_decoded = self.t2t_model.predict(
-                    batch_embeddings,
+                    batch_embeddings_tensor,
                     target_lang=self.config.target_lang,
                     batch_size=self.config.batch_size
                 )
+
                 decoded_texts.extend(batch_decoded)
 
             logger.info("Texts decoded successfully.")
@@ -441,7 +446,7 @@ class HFTextToEmbeddingPipeline(Pipeline):
         for column in self.config.columns:
             if column in batch:
 
-                if not isinstance(batch[column], list):
+                if not isinstance(batch[column], (list, np.ndarray)):
                     raise ValueError(
                         f"Expected list for column {column}, got {type(batch[column])}")
 
@@ -509,8 +514,7 @@ class HFTextToEmbeddingPipeline(Pipeline):
                     batch_size=self.config.batch_size,
                     max_seq_len=self.config.max_seq_len
                 )
-                batch_embeddings = batch_embeddings.to(dtype=self.config.dtype)
-                batch_embeddings = batch_embeddings.detach().cpu().numpy()
+                batch_embeddings = batch_embeddings.detach().cpu().numpy().astype(self.config.dtype)
                 embeddings.extend(batch_embeddings)
 
             return np.vstack(embeddings)
