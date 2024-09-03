@@ -1,6 +1,12 @@
-import pytest
 from unittest.mock import Mock, patch
-from huggingface_pipelines.metric_analyzer import MetricAnalyzerPipeline, MetricPipelineConfig, MetricAnalyzerPipelineFactory
+
+import pytest
+
+from huggingface_pipelines.metric_analyzer import (
+    MetricAnalyzerPipeline,
+    MetricAnalyzerPipelineFactory,
+    MetricPipelineConfig,
+)
 
 
 @pytest.fixture
@@ -10,7 +16,7 @@ def sample_config():
         "low_score_threshold": 0.6,
         "columns": ["text"],
         "reconstructed_columns": ["reconstructed_text"],
-        "output_column_suffix": "score"
+        "output_column_suffix": "score",
     }
 
 
@@ -18,7 +24,7 @@ def sample_config():
 def sample_batch():
     return {
         "text": ["Hello world", "This is a test"],
-        "reconstructed_text": ["Hello earth", "This is a quiz"]
+        "reconstructed_text": ["Hello earth", "This is a quiz"],
     }
 
 
@@ -28,7 +34,7 @@ def test_metric_pipeline_config():
         low_score_threshold=0.7,
         columns=["col1"],
         reconstructed_columns=["rec_col1"],
-        output_column_suffix="test"
+        output_column_suffix="test",
     )
     assert config.metrics == ["bleu"]
     assert config.low_score_threshold == 0.7
@@ -51,12 +57,10 @@ def test_compute_metric(sample_config):
     pipeline.metrics["bleu"] = Mock()
     pipeline.metrics["bleu"].compute.return_value = {"score": 0.8}
 
-    result = pipeline.compute_metric(
-        "bleu", [["Hello", "world"]], ["Hello", "earth"])
+    result = pipeline.compute_metric("bleu", [["Hello", "world"]], ["Hello", "earth"])
     assert result == {"score": 0.8}
     pipeline.metrics["bleu"].compute.assert_called_once_with(
-        predictions=["Hello", "earth"],
-        references=[["Hello", "world"]]
+        predictions=["Hello", "earth"], references=[["Hello", "world"]]
     )
 
 
@@ -79,9 +83,7 @@ def test_process_batch(sample_config, sample_batch):
 
 def test_process_batch_mismatch_columns():
     config = MetricPipelineConfig(
-        metrics=["bleu"],
-        columns=["col1", "col2"],
-        reconstructed_columns=["rec_col1"]
+        metrics=["bleu"], columns=["col1", "col2"], reconstructed_columns=["rec_col1"]
     )
     pipeline = MetricAnalyzerPipeline(config)
 
@@ -96,15 +98,19 @@ def test_process_batch_list_input(sample_config):
 
     batch = {
         "text": [["Hello", "world"], ["This", "is", "a", "test"]],
-        "reconstructed_text": [["Hello", "earth"], ["This", "is", "a", "quiz"]]
+        "reconstructed_text": [["Hello", "earth"], ["This", "is", "a", "quiz"]],
     }
 
     result = pipeline.process_batch(batch)
 
     assert result["text_references"] == [
-        [["Hello", "world"]], [["This", "is", "a", "test"]]]
+        [["Hello", "world"]],
+        [["This", "is", "a", "test"]],
+    ]
     assert result["text_predictions"] == [
-        ["Hello", "earth"], ["This", "is", "a", "quiz"]]
+        ["Hello", "earth"],
+        ["This", "is", "a", "quiz"],
+    ]
 
 
 def test_metric_analyzer_pipeline_factory(sample_config):
@@ -115,15 +121,20 @@ def test_metric_analyzer_pipeline_factory(sample_config):
     assert pipeline.config.metrics == sample_config["metrics"]
     assert pipeline.config.low_score_threshold == sample_config["low_score_threshold"]
     assert pipeline.config.columns == sample_config["columns"]
-    assert pipeline.config.reconstructed_columns == sample_config["reconstructed_columns"]
+    assert (
+        pipeline.config.reconstructed_columns == sample_config["reconstructed_columns"]
+    )
     assert pipeline.config.output_column_suffix == sample_config["output_column_suffix"]
 
 
-@pytest.mark.parametrize("score,expected", [
-    (0.7, [False, False]),
-    (0.5, [True, True]),
-    (0.6, [False, False]),
-])
+@pytest.mark.parametrize(
+    "score,expected",
+    [
+        (0.7, [False, False]),
+        (0.5, [True, True]),
+        (0.6, [False, False]),
+    ],
+)
 def test_low_score_threshold(sample_config, sample_batch, score, expected):
     pipeline = MetricAnalyzerPipeline(MetricPipelineConfig(**sample_config))
     pipeline.compute_metric = Mock(return_value={"score": score})
