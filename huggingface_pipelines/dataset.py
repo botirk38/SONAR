@@ -59,8 +59,7 @@ class DatasetConfig(ABC):
         self.validate_world_size_and_rank()
 
         if not self.streaming and self.world_size > 1:
-            dataset = dataset.shard(
-                num_shards=self.world_size, index=self.rank)
+            dataset = dataset.shard(num_shards=self.world_size, index=self.rank)
 
         return dataset
 
@@ -78,7 +77,7 @@ class DatasetConfig(ABC):
             "name": self.config,
             "split": self.dataset_split,
             "trust_remote_code": self.trust_remote_code,
-            "streaming": self.streaming
+            "streaming": self.streaming,
         }
         return {k: v for k, v in dataset_kwargs.items() if v is not None}
 
@@ -89,5 +88,9 @@ class DatasetConfig(ABC):
         Raises:
             AssertionError: If world_size or rank are invalid.
         """
-        assert self.world_size >= 1, f"Invalid world_size: {self.world_size}. It should be >= 1."
-        assert 0 <= self.rank < self.world_size, f"Invalid rank: {self.rank}. It should be between 0 and {self.world_size - 1}."
+        assert (
+            self.world_size >= 1
+        ), f"Invalid world_size: {self.world_size}. It should be >= 1."
+        assert (
+            0 <= self.rank < self.world_size
+        ), f"Invalid rank: {self.rank}. It should be between 0 and {self.world_size - 1}."
