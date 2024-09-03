@@ -4,7 +4,11 @@ from typing import Any, Dict, List
 
 import evaluate  # type: ignore
 
-from huggingface_pipelines.pipeline import Pipeline, PipelineConfig, PipelineFactory  # type: ignore
+from huggingface_pipelines.pipeline import (  # type: ignore
+    Pipeline,
+    PipelineConfig,
+    PipelineFactory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,8 @@ class MetricAnalyzerPipeline(Pipeline):
     """
     A pipeline to analyze multiple metrics for different data types and reconstructed columns.
     """
+
+    config: MetricPipelineConfig
 
     def __init__(self, config: MetricPipelineConfig):
         super().__init__(config)
@@ -89,8 +95,7 @@ class MetricAnalyzerPipeline(Pipeline):
             if isinstance(original_data[0], list):
                 original_data = [" ".join(item) for item in original_data]
             if isinstance(reconstructed_data[0], list):
-                reconstructed_data = [" ".join(item)
-                                      for item in reconstructed_data]
+                reconstructed_data = [" ".join(item) for item in reconstructed_data]
 
             references = [[ref.split()] for ref in original_data]
             predictions = [pred.split() for pred in reconstructed_data]
